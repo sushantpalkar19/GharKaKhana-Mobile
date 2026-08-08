@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FF9800"/>
+      <stop offset="100%" stop-color="#F57C00"/>
+    </linearGradient>
+    <linearGradient id="greenGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#43A047"/>
+      <stop offset="100%" stop-color="#2E7D32"/>
+    </linearGradient>
+    <radialGradient id="clocheGrad" cx="50%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#4CAF50"/>
+      <stop offset="100%" stop-color="#2E7D32"/>
+    </radialGradient>
+    <radialGradient id="bowlGrad" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#FF9800"/>
+      <stop offset="100%" stop-color="#F57C00"/>
+    </radialGradient>
+  </defs>
+
+  <!-- House outline -->
+  <path d="M256 48 L88 188 C80 194 78 206 84 214 L84 400 C84 414 96 426 110 426 L402 426 C416 426 428 414 428 400 L428 214 C434 206 432 194 424 188 L256 48 Z"
+        fill="none"
+        stroke="url(#orangeGrad)"
+        stroke-width="14"
+        stroke-linejoin="round"
+        stroke-linecap="round"/>
+
+  <!-- Chimney -->
+  <path d="M368 168 L368 128 C368 120 374 114 382 114 L398 114 C406 114 412 120 412 128 L412 188"
+        fill="none"
+        stroke="url(#orangeGrad)"
+        stroke-width="12"
+        stroke-linejoin="round"
+        stroke-linecap="round"/>
+
+  <!-- Green cloche lid -->
+  <path d="M168 248 C168 196 206 158 256 158 C306 158 344 196 344 248 L344 268 C344 278 336 286 326 286 L186 286 C176 286 168 278 168 268 Z"
+        fill="url(#clocheGrad)"/>
+  <circle cx="256" cy="158" r="10" fill="#1B5E20"/>
+
+  <!-- Cloche knob -->
+  <circle cx="256" cy="148" r="8" fill="#388E3C"/>
+
+  <!-- Steam -->
+  <g fill="none" stroke="#F57C00" stroke-width="6" stroke-linecap="round">
+    <path d="M226 152 Q220 132 226 112 Q232 92 226 72"/>
+    <path d="M256 148 Q250 126 256 104 Q262 82 256 60"/>
+    <path d="M286 152 Q280 132 286 112 Q292 92 286 72"/>
+  </g>
+
+  <!-- Orange bowl -->
+  <path d="M176 286 C176 338 210 372 256 372 C302 372 336 338 336 286 Z"
+        fill="url(#bowlGrad)"/>
+
+  <!-- Heart -->
+  <path d="M256 348 C256 348 220 326 220 302 C220 286 232 276 246 276 C252 276 256 280 256 280 C256 280 260 276 266 276 C280 276 292 286 292 302 C292 326 256 348 256 348 Z"
+        fill="#FFFFFF"/>
+
+  <!-- Curved base -->
+  <path d="M108 400 Q256 460 404 400"
+        fill="none"
+        stroke="url(#greenGrad)"
+        stroke-width="14"
+        stroke-linecap="round"/>
+
+  <!-- Leaf -->
+  <path d="M404 400 C430 378 448 352 452 320 C438 330 418 342 404 358 C404 372 404 386 404 400 Z"
+        fill="url(#greenGrad)"/>
+  <path d="M404 400 C420 382 436 362 444 340"
+        fill="none"
+        stroke="#FFFFFF"
+        stroke-width="3"
+        stroke-linecap="round"
+        opacity="0.7"/>
+</svg>
