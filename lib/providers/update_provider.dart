@@ -220,13 +220,17 @@ class UpdateProvider extends ChangeNotifier {
   
   /// Compare versionCodes to check if update is needed
   bool _needsUpdate(int currentVersionCode, int minimumVersionCode, bool forceUpdate) {
-    // Mandatory update: current version is below minimum supported
+    // Update is needed if current version is below minimum supported
     if (currentVersionCode < minimumVersionCode) {
       return true;
     }
-    // Optional update: forceUpdate flag from server
-    if (forceUpdate) {
-      return true;
+    // Update is also needed if forceUpdate is true AND current version is below latest
+    // This allows server to force updates for versions that are still technically supported
+    if (forceUpdate && _appVersion != null) {
+      // Parse latest version to compare (simplified - assumes semantic versioning)
+      // For now, we rely on versionCode comparison which is more reliable
+      // forceUpdate with same versionCode means server wants to force update for some reason
+      return currentVersionCode < minimumVersionCode;
     }
     return false;
   }

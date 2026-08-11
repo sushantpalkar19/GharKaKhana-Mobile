@@ -1,12 +1,10 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../core/theme.dart';
 import '../providers/auth_provider.dart';
 import '../providers/update_provider.dart';
 import '../services/theme_service.dart';
@@ -22,23 +20,22 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen>
     with TickerProviderStateMixin {
   static const _logoAsset = 'assets/branding/logo.png';
-  static const _minSplashDuration = Duration(milliseconds: 2500);
+  static const _minSplashDuration = Duration(milliseconds: 3000);
   static const _exitDuration = Duration(milliseconds: 300);
   static const _onboardingCompleteKey = 'gharkakhana_onboarding_complete';
 
   late final AnimationController _introController;
-  late final AnimationController _backgroundController;
   late final AnimationController _exitController;
+  late final AnimationController _textController;
 
   late final Animation<double> _logoOpacity;
   late final Animation<double> _logoScale;
-  late final Animation<double> _logoFloat;
-  late final Animation<double> _titleFade;
-  late final Animation<Offset> _titleSlide;
-  late final Animation<double> _subtitleFade;
-  late final Animation<Offset> _subtitleSlide;
-  late final Animation<double> _loadingFade;
   late final Animation<double> _exitFade;
+
+  // Text animations
+  late final List<Animation<double>> _letterAnimations;
+  late final Animation<double> _taglineFade;
+  late final Animation<Offset> _taglineSlide;
 
   bool _initialized = false;
   bool _navigated = false;
@@ -47,15 +44,14 @@ class _SplashScreenState extends State<SplashScreen>
   bool _firstLaunchCompleted = false;
   bool _reduceMotion = false;
 
+  static const String _appName = 'GharKaKhana';
+
   @override
   void initState() {
     super.initState();
     _setupAnimations();
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (!_reduceMotion) {
-        _backgroundController.repeat();
-      }
       unawaited(_introController.forward());
       unawaited(_bootstrap());
     });
@@ -64,8 +60,8 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void dispose() {
     _introController.dispose();
-    _backgroundController.dispose();
     _exitController.dispose();
+    _textController.dispose();
     super.dispose();
   }
 
@@ -84,72 +80,60 @@ class _SplashScreenState extends State<SplashScreen>
       duration: _minSplashDuration,
     );
 
-    _backgroundController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 20),
-    );
-
     _exitController = AnimationController(vsync: this, duration: _exitDuration);
+
+    _textController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
 
     // Logo animations
     _logoOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _introController,
-        curve: const Interval(0.36, 0.60, curve: Curves.easeOutCubic),
+        curve: const Interval(0.0, 0.30, curve: Curves.easeOutCubic),
       ),
     );
 
-    _logoScale = Tween<double>(begin: 0.8, end: 1.0).animate(
+    _logoScale = Tween<double>(begin: 0.7, end: 1.0).animate(
       CurvedAnimation(
         parent: _introController,
-        curve: const Interval(0.36, 0.60, curve: Curves.easeOutBack),
+        curve: const Interval(0.0, 0.30, curve: Curves.easeOutBack),
       ),
     );
 
-    _logoFloat = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _introController,
-        curve: const Interval(0.60, 1.0, curve: Curves.easeInOut),
-      ),
-    );
-
-    // Title animations
-    _titleFade = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _introController,
-        curve: const Interval(0.72, 0.88, curve: Curves.easeOutCubic),
-      ),
-    );
-
-    _titleSlide =
-        Tween<Offset>(begin: const Offset(0.0, 0.20), end: Offset.zero).animate(
+    // Letter animations - staggered bounce
+    _letterAnimations = List.generate(
+      _appName.length,
+      (index) {
+        final stagger = index * 0.07; // 70ms stagger per letter
+        final start = 0.20 + stagger;
+        final end = (start + 0.25).clamp(0.0, 1.0);
+        
+        return Tween<double>(begin: 0.0, end: 1.0).animate(
           CurvedAnimation(
-            parent: _introController,
-            curve: const Interval(0.72, 0.88, curve: Curves.easeOutCubic),
+            parent: _textController,
+            curve: Interval(start, end, curve: Curves.easeOutBack),
           ),
         );
+      },
+    );
 
-    // Subtitle animations
-    _subtitleFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+    // Tagline animations
+    _taglineFade = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
-        parent: _introController,
-        curve: const Interval(0.88, 1.0, curve: Curves.easeOutCubic),
+        parent: _textController,
+        curve: const Interval(0.85, 1.0, curve: Curves.easeOutCubic),
       ),
     );
 
-    _subtitleSlide =
-        Tween<Offset>(begin: const Offset(0.0, 0.15), end: Offset.zero).animate(
-          CurvedAnimation(
-            parent: _introController,
-            curve: const Interval(0.88, 1.0, curve: Curves.easeOutCubic),
-          ),
-        );
-
-    // Loading animation
-    _loadingFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+    _taglineSlide = Tween<Offset>(
+      begin: const Offset(0.0, 0.15),
+      end: Offset.zero,
+    ).animate(
       CurvedAnimation(
-        parent: _introController,
-        curve: const Interval(0.88, 1.0, curve: Curves.easeOut),
+        parent: _textController,
+        curve: const Interval(0.85, 1.0, curve: Curves.easeOutCubic),
       ),
     );
 
@@ -167,6 +151,14 @@ class _SplashScreenState extends State<SplashScreen>
     await _waitForAuthReady();
     await _checkOnboardingStatus();
     await _checkForUpdates();
+    
+    // Start text animation after logo appears
+    if (!_reduceMotion) {
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (mounted) {
+        _textController.forward();
+      }
+    }
     
     if (!mounted) return;
     setState(() => _initialized = true);
@@ -188,43 +180,43 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _checkForUpdates() async {
-    final updateProvider = context.read<UpdateProvider>();
-    await updateProvider.init(); // Ensure version info is loaded
-    await updateProvider.checkForUpdate();
-    
-    // Handle maintenance mode
-    if (updateProvider.appVersion?.maintenanceMode == true) {
-      if (mounted) {
-        Navigator.pushReplacementNamed(
-          context,
-          '/maintenance',
-          arguments: {'message': updateProvider.appVersion?.maintenanceMessage},
-        );
+    try {
+      final updateProvider = context.read<UpdateProvider>();
+      await updateProvider.init(); // Ensure version info is loaded
+      await updateProvider.checkForUpdate();
+      
+      // Handle maintenance mode
+      if (updateProvider.appVersion?.maintenanceMode == true) {
+        if (mounted) {
+          Navigator.pushReplacementNamed(
+            context,
+            '/maintenance',
+            arguments: {'message': updateProvider.appVersion?.maintenanceMessage},
+          );
+        }
+        return;
       }
-      return;
-    }
-    
-    // Handle mandatory update (versionCode below minimum)
-    if (updateProvider.isMandatoryUpdate) {
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/mandatory-update');
+      
+      // Handle mandatory update (versionCode below minimum)
+      if (updateProvider.isMandatoryUpdate) {
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/mandatory-update');
+        }
+        return;
       }
-      return;
-    }
-    
-    // Handle force update (server flag)
-    if (updateProvider.isUpdateAvailable && updateProvider.appVersion?.forceUpdate == true) {
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/mandatory-update');
+      
+      // Handle soft update (show dialog but allow navigation)
+      // Only show if update is available AND it's not a mandatory update
+      if (updateProvider.isUpdateAvailable && !updateProvider.isMandatoryUpdate) {
+        if (mounted) {
+          _showSoftUpdateDialog(updateProvider);
+        }
       }
-      return;
-    }
-    
-    // Handle soft update (show dialog but allow navigation)
-    if (updateProvider.isUpdateAvailable && updateProvider.appVersion?.forceUpdate == false) {
-      if (mounted) {
-        _showSoftUpdateDialog(updateProvider);
-      }
+    } catch (e) {
+      // If version check fails, log error but allow app to continue
+      // This prevents the app from getting stuck on splash screen
+      debugPrint('[SplashScreen] Update check failed: $e');
+      // Continue with normal navigation
     }
   }
 
@@ -252,13 +244,6 @@ class _SplashScreenState extends State<SplashScreen>
 
   void _tryNavigate() {
     if (_navigated || !_initialized) return;
-    
-    // Check if force update dialog is blocking navigation
-    final updateProvider = context.read<UpdateProvider>();
-    if (updateProvider.isUpdateAvailable && updateProvider.appVersion?.forceUpdate == true) {
-      // Don't navigate if force update dialog is shown
-      return;
-    }
     
     _navigated = true;
     _exitController.forward().then((_) {
@@ -289,98 +274,68 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    final themeExtension = AppThemeExtension.of(context);
-    final gradientEnabled = themeExtension.gradientEnabled;
-    final themePack = themeExtension.themePack;
-    
     return FadeTransition(
       opacity: _exitFade,
       child: Scaffold(
-        backgroundColor: themePack.background,
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Animated Background
-            if (!_reduceMotion && gradientEnabled)
-              _AnimatedGradientBackground(
-                controller: _backgroundController,
-                gradient: themeExtension.gradient,
-              ),
-            
-            // Floating Particles
-            if (!_reduceMotion)
-              _FloatingParticles(
-                controller: _backgroundController,
-                color: themePack.primary,
-              ),
-            
-            // Content
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Logo
-                    _LogoSection(
-                      controller: _introController,
-                      logoOpacity: _logoOpacity,
-                      logoScale: _logoScale,
-                      logoFloat: _logoFloat,
-                    ),
-                    const SizedBox(height: 32),
-                    
-                    // Title
-                    SlideTransition(
-                      position: _titleSlide,
-                      child: FadeTransition(
-                        opacity: _titleFade,
-                        child: Text(
-                          'GharKaKhana',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: Theme.of(context).colorScheme.onSurface,
+        backgroundColor: const Color(0xFFFFFFFF), // Pure white background
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Logo
+                  _LogoSection(
+                    logoOpacity: _logoOpacity,
+                    logoScale: _logoScale,
+                  ),
+                  const SizedBox(height: 48),
+                  
+                  // Animated App Name - Bouncing Letters
+                  _BouncingText(
+                    text: _appName,
+                    animations: _letterAnimations,
+                    reduceMotion: _reduceMotion,
+                  ),
+                  const SizedBox(height: 32),
+                  
+                  // Tagline
+                  FadeTransition(
+                    opacity: _taglineFade,
+                    child: SlideTransition(
+                      position: _taglineSlide,
+                      child: Column(
+                        children: [
+                          Text(
+                            'Fresh Homemade Food',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey[600],
+                              letterSpacing: 0.5,
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Made With Love ❤️',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w400,
+                              color: Colors.grey[500],
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    
-                    // Subtitle
-                    SlideTransition(
-                      position: _subtitleSlide,
-                      child: FadeTransition(
-                        opacity: _subtitleFade,
-                        child: Text(
-                          'Fresh Homemade Food\nMade With Love ❤️',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            height: 1.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-            
-            // Loading Indicator
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 80,
-              child: FadeTransition(
-                opacity: _loadingFade,
-                child: _PremiumLoadingDots(
-                  controller: _introController,
-                  color: themePack.primary,
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -389,196 +344,137 @@ class _SplashScreenState extends State<SplashScreen>
 
 class _LogoSection extends StatelessWidget {
   const _LogoSection({
-    required this.controller,
     required this.logoOpacity,
     required this.logoScale,
-    required this.logoFloat,
   });
 
-  final AnimationController controller;
   final Animation<double> logoOpacity;
   final Animation<double> logoScale;
-  final Animation<double> logoFloat;
 
-  static const _stageSize = 224.0;
-  static const _logoSize = 176.0;
+  static const _logoSize = 160.0;
 
   @override
   Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: SizedBox.square(
-        dimension: _stageSize,
-        child: FadeTransition(
-          opacity: logoOpacity,
-          child: ScaleTransition(
-            scale: logoScale,
-            child: AnimatedBuilder(
-              animation: logoFloat,
-              builder: (context, child) {
-                final floatOffset = math.sin(logoFloat.value * math.pi * 2) * 8;
-                return Transform.translate(
-                  offset: Offset(0, -floatOffset),
-                  child: child,
-                );
-              },
-              child: Image.asset(
-                _SplashScreenState._logoAsset,
-                width: _logoSize,
-                height: _logoSize,
-                fit: BoxFit.contain,
-                filterQuality: FilterQuality.high,
-                isAntiAlias: true,
-              ),
-            ),
-          ),
+    return FadeTransition(
+      opacity: logoOpacity,
+      child: ScaleTransition(
+        scale: logoScale,
+        child: Image.asset(
+          _SplashScreenState._logoAsset,
+          width: _logoSize,
+          height: _logoSize,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.high,
         ),
       ),
     );
   }
 }
 
-class _AnimatedGradientBackground extends StatelessWidget {
-  const _AnimatedGradientBackground({
-    required this.controller,
-    required this.gradient,
+class _BouncingText extends StatelessWidget {
+  const _BouncingText({
+    required this.text,
+    required this.animations,
+    required this.reduceMotion,
   });
 
-  final AnimationController controller;
-  final LinearGradient gradient;
+  final String text;
+  final List<Animation<double>> animations;
+  final bool reduceMotion;
+
+  @override
+  Widget build(BuildContext context) {
+    if (reduceMotion) {
+      // Show static text for reduced motion
+      return Text(
+        text,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 32,
+          fontWeight: FontWeight.w800,
+          color: Color(0xFF1A1A1A),
+          letterSpacing: 1.0,
+        ),
+      );
+    }
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: List.generate(
+        text.length,
+        (index) => _BouncingLetter(
+          letter: text[index],
+          animation: animations[index],
+        ),
+      ),
+    );
+  }
+}
+
+class _BouncingLetter extends StatelessWidget {
+  const _BouncingLetter({
+    required this.letter,
+    required this.animation,
+  });
+
+  final String letter;
+  final Animation<double> animation;
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: controller,
+      animation: animation,
       builder: (context, child) {
-        final value = controller.value;
-        return Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: gradient.colors,
-              begin: Alignment(
-                math.sin(value * math.pi * 2) * 0.5,
-                math.cos(value * math.pi * 2) * 0.5 - 0.5,
+        final value = animation.value;
+        
+        // Bounce effect: scale 0.85 -> 1.0 -> 1.03 -> 1.0
+        final scale = _bounceScale(value);
+        // Vertical movement: start below, bounce up, settle
+        final yOffset = _bounceOffset(value);
+        // Fade in
+        final opacity = value.clamp(0.0, 1.0);
+
+        return Transform.translate(
+          offset: Offset(0, yOffset),
+          child: Opacity(
+            opacity: opacity,
+            child: Transform.scale(
+              scale: scale,
+              child: Text(
+                letter,
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1A1A1A),
+                  letterSpacing: 1.0,
+                ),
               ),
-              end: Alignment(
-                -math.sin(value * math.pi * 2) * 0.5,
-                -math.cos(value * math.pi * 2) * 0.5 + 0.5,
-              ),
-              stops: gradient.stops,
             ),
           ),
         );
       },
     );
   }
-}
 
-class _FloatingParticles extends StatelessWidget {
-  const _FloatingParticles({
-    required this.controller,
-    required this.color,
-  });
-
-  final AnimationController controller;
-  final Color color;
-
-  static const _particleCount = 15;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, child) {
-        return Stack(
-          children: List.generate(_particleCount, (index) {
-            final value = controller.value;
-            final angle = (index / _particleCount) * math.pi * 2;
-            final radius = 100 + math.sin(value * math.pi * 2 + angle) * 50;
-            final x = math.cos(angle + value * 0.5) * radius;
-            final y = math.sin(angle + value * 0.5) * radius;
-            final opacity = (math.sin(value * math.pi * 2 + angle) + 1) / 2 * 0.08;
-            
-            return Positioned(
-              left: x + MediaQuery.of(context).size.width / 2,
-              top: y + MediaQuery.of(context).size.height / 2,
-              child: Opacity(
-                opacity: opacity,
-                child: Container(
-                  width: 4 + index % 3 * 2,
-                  height: 4 + index % 3 * 2,
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            );
-          }),
-        );
-      },
-    );
-  }
-}
-
-class _PremiumLoadingDots extends StatelessWidget {
-  const _PremiumLoadingDots({required this.controller, required this.color});
-
-  final AnimationController controller;
-  final Color color;
-
-  static const _dotSize = 8.0;
-  static const _activeStart = 0.88;
-  static const _activeEnd = 1.0;
-
-  @override
-  Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: AnimatedBuilder(
-        animation: controller,
-        builder: (context, _) {
-          final progress =
-              ((controller.value - _activeStart) / (_activeEnd - _activeStart))
-                  .clamp(0.0, 1.0);
-
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(3, (index) {
-              final pulse = _dotPulse(progress, index);
-              final opacity = 0.35 + pulse * 0.65;
-              final scale = 1.0 + pulse * 0.3;
-              final offset = -pulse * 6.0;
-
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 5),
-                child: Transform.translate(
-                  offset: Offset(0, offset),
-                  child: Transform.scale(
-                    scale: scale,
-                    child: Opacity(
-                      opacity: opacity,
-                      child: SizedBox.square(
-                        dimension: _dotSize,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: color,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }),
-          );
-        },
-      ),
-    );
+  double _bounceScale(double value) {
+    if (value < 0.5) {
+      return 0.85 + (value * 0.3); // 0.85 -> 1.0
+    } else if (value < 0.8) {
+      return 1.0 + ((value - 0.5) * 0.1); // 1.0 -> 1.03
+    } else {
+      return 1.03 - ((value - 0.8) * 0.15); // 1.03 -> 1.0
+    }
   }
 
-  double _dotPulse(double progress, int index) {
-    final delayed = (progress * 1.2 - index * 0.15).clamp(0.0, 1.0);
-    if (delayed <= 0.0 || delayed >= 1.0) return 0.0;
-    return math.sin(delayed * math.pi);
+  double _bounceOffset(double value) {
+    // Start 20px below, bounce up to -5px, settle at 0
+    if (value < 0.5) {
+      return 20.0 - (value * 40.0); // 20 -> -20
+    } else if (value < 0.8) {
+      return -20.0 + ((value - 0.5) * 50.0); // -20 -> -5
+    } else {
+      return -5.0 + ((value - 0.8) * 25.0); // -5 -> 0
+    }
   }
 }
