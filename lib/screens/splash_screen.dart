@@ -43,6 +43,7 @@ class _SplashScreenState extends State<SplashScreen>
   bool _onboardingComplete = false;
   bool _firstLaunchCompleted = false;
   bool _reduceMotion = false;
+  bool _animationCompleted = false;
 
   static const String _appName = 'GharKaKhana';
 
@@ -52,6 +53,7 @@ class _SplashScreenState extends State<SplashScreen>
     _setupAnimations();
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      debugPrint('[SplashScreen] Splash animation started');
       unawaited(_introController.forward());
       unawaited(_bootstrap());
     });
@@ -84,7 +86,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     _textController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 2000),
     );
 
     // Logo animations
@@ -107,8 +109,8 @@ class _SplashScreenState extends State<SplashScreen>
       _appName.length,
       (index) {
         final stagger = index * 0.07; // 70ms stagger per letter
-        final start = 0.20 + stagger;
-        final end = (start + 0.25).clamp(0.0, 1.0);
+        final start = 0.10 + stagger;
+        final end = (start + 0.30).clamp(0.0, 1.0);
         
         return Tween<double>(begin: 0.0, end: 1.0).animate(
           CurvedAnimation(
@@ -123,7 +125,7 @@ class _SplashScreenState extends State<SplashScreen>
     _taglineFade = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _textController,
-        curve: const Interval(0.85, 1.0, curve: Curves.easeOutCubic),
+        curve: const Interval(0.80, 1.0, curve: Curves.easeOutCubic),
       ),
     );
 
@@ -133,7 +135,7 @@ class _SplashScreenState extends State<SplashScreen>
     ).animate(
       CurvedAnimation(
         parent: _textController,
-        curve: const Interval(0.85, 1.0, curve: Curves.easeOutCubic),
+        curve: const Interval(0.80, 1.0, curve: Curves.easeOutCubic),
       ),
     );
 
@@ -141,9 +143,24 @@ class _SplashScreenState extends State<SplashScreen>
     _exitFade = Tween<double>(begin: 1.0, end: 0.0).animate(
       CurvedAnimation(parent: _exitController, curve: Curves.easeInOutCubic),
     );
+
+    // Listen for text animation completion
+    _textController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        debugPrint('[SplashScreen] Text animation completed');
+        if (mounted) {
+          setState(() {
+            _animationCompleted = true;
+          });
+          debugPrint('[SplashScreen] Animation completed flag set, attempting navigation');
+          _tryNavigate();
+        }
+      }
+    });
   }
 
   Future<void> _bootstrap() async {
+    debugPrint('[SplashScreen] Bootstrap started');
     // Check first launch FIRST - highest priority
     await _checkFirstLaunchStatus();
     
@@ -152,16 +169,29 @@ class _SplashScreenState extends State<SplashScreen>
     await _checkOnboardingStatus();
     await _checkForUpdates();
     
-    // Start text animation after logo appears
+    debugPrint('[SplashScreen] Initialization checks completed');
+    
+    // Start text animation after logo appears (short delay for visual clarity)
     if (!_reduceMotion) {
-      await Future.delayed(const Duration(milliseconds: 300));
+      await Future.delayed(const Duration(milliseconds: 200));
       if (mounted) {
+        debugPrint('[SplashScreen] Starting text animation');
         _textController.forward();
+      }
+    } else {
+      // For reduced motion, mark animation as complete immediately
+      if (mounted) {
+        setState(() {
+          _animationCompleted = true;
+        });
       }
     }
     
     if (!mounted) return;
     setState(() => _initialized = true);
+    debugPrint('[SplashScreen] Initialization flag set');
+    
+    // Try navigate now - it will only proceed if animation is also complete
     _tryNavigate();
   }
 
@@ -243,8 +273,14 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   void _tryNavigate() {
-    if (_navigated || !_initialized) return;
+    // Only navigate if BOTH initialization AND animation are complete
+    debugPrint('[SplashScreen] _tryNavigate called - initialized: $_initialized, animationCompleted: $_animationCompleted, navigated: $_navigated');
+    if (_navigated || !_initialized || !_animationCompleted) {
+      debugPrint('[SplashScreen] Navigation blocked - waiting for both initialization and animation');
+      return;
+    }
     
+    debugPrint('[SplashScreen] Navigation proceeding');
     _navigated = true;
     _exitController.forward().then((_) {
       if (!mounted) return;
