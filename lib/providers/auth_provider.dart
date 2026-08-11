@@ -235,14 +235,14 @@ class AuthProvider extends ChangeNotifier {
           debugPrint('[AuthProvider] getDashboardRoute: owner suspended, returning /owner-suspended');
           return '/owner-suspended';
         } else if (_user!.status == 'active') {
-          debugPrint('[AuthProvider] getDashboardRoute: owner active, returning /owner-dashboard');
-          return '/owner-dashboard';
+          debugPrint('[AuthProvider] getDashboardRoute: owner active, returning /owner-app');
+          return '/owner-app';
         }
         debugPrint('[AuthProvider] getDashboardRoute: owner unknown status, returning /login');
         return '/login';
       case 'customer':
-        debugPrint('[AuthProvider] getDashboardRoute: customer, returning /home');
-        return '/home';
+        debugPrint('[AuthProvider] getDashboardRoute: customer, returning /customer-app');
+        return '/customer-app';
       case 'admin':
         // Check if admin needs to change password
         if (_requiresPasswordChange) {
@@ -252,8 +252,8 @@ class AuthProvider extends ChangeNotifier {
         debugPrint('[AuthProvider] getDashboardRoute: admin, returning /admin-dashboard');
         return '/admin-dashboard';
       default:
-        debugPrint('[AuthProvider] getDashboardRoute: unknown role, returning /home');
-        return '/home';
+        debugPrint('[AuthProvider] getDashboardRoute: unknown role, returning /customer-app');
+        return '/customer-app';
     }
   }
 }

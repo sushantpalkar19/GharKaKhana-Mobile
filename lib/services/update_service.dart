@@ -1,4 +1,9 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/app_version.dart';
 import 'app_version_service.dart';
 
@@ -9,7 +14,7 @@ abstract class UpdateService {
   Future<AppVersion?> checkUpdate();
   
   /// Download the update
-  Future<void> downloadUpdate(String url, {Function(double progress)? onProgress});
+  Future<String> downloadUpdate(String url, {Function(double progress)? onProgress});
   
   /// Install the update
   Future<void> installUpdate(String apkPath);
@@ -22,9 +27,11 @@ abstract class UpdateService {
 /// Used for APK distribution (current implementation)
 class CustomUpdateService implements UpdateService {
   final AppVersionService _versionService;
-  
+  final Dio _dio = Dio();
+  CancelToken? _cancelToken;
+
   CustomUpdateService(this._versionService);
-  
+
   @override
   Future<AppVersion?> checkUpdate() async {
     try {
@@ -34,38 +41,91 @@ class CustomUpdateService implements UpdateService {
       return null;
     }
   }
-  
+
   @override
-  Future<void> downloadUpdate(String url, {Function(double progress)? onProgress}) async {
-    // TODO: Implement HTTP download with progress tracking
-    // Will use http package + path_provider for download location
+  Future<String> downloadUpdate(String url, {Function(double progress)? onProgress}) async {
     debugPrint('[CustomUpdateService] Downloading from: $url');
-    
-    // Placeholder for download implementation
-    await Future.delayed(const Duration(seconds: 2));
-    
-    if (onProgress != null) {
-      onProgress(1.0);
+
+    try {
+      // Request storage permission for Android 10 and below
+      if (Platform.isAndroid) {
+        final status = await Permission.storage.request();
+        if (!status.isGranted) {
+          throw Exception('Storage permission is required to download updates');
+        }
+      }
+
+      // Get download directory
+      final directory = await getTemporaryDirectory();
+      final apkPath = '${directory.path}/gharkakhana_update.apk';
+
+      // Delete existing file if present
+      final file = File(apkPath);
+      if (await file.exists()) {
+        await file.delete();
+      }
+
+      _cancelToken = CancelToken();
+
+      await _dio.download(
+        url,
+        apkPath,
+        cancelToken: _cancelToken,
+        onReceiveProgress: (received, total) {
+          if (total != -1) {
+            final progress = received / total;
+            debugPrint('[CustomUpdateService] Download progress: ${(progress * 100).toStringAsFixed(1)}%');
+            onProgress?.call(progress);
+          }
+        },
+      );
+
+      debugPrint('[CustomUpdateService] Download complete: $apkPath');
+      return apkPath;
+    } catch (e) {
+      debugPrint('[CustomUpdateService] Download failed: $e');
+      rethrow;
     }
-    
-    debugPrint('[CustomUpdateService] Download complete');
   }
-  
+
   @override
   Future<void> installUpdate(String apkPath) async {
-    // TODO: Implement APK installation using open_filex
     debugPrint('[CustomUpdateService] Installing: $apkPath');
-    
-    // Placeholder for installation implementation
-    await Future.delayed(const Duration(seconds: 1));
-    
-    debugPrint('[CustomUpdateService] Installation complete');
+
+    try {
+      // Request install permission for Android 13+
+      if (Platform.isAndroid) {
+        final status = await Permission.requestInstallPackages.request();
+        if (!status.isGranted) {
+          // Guide user to enable install permission
+          await openAppSettings();
+          throw Exception('Install permission is required. Please enable it in settings.');
+        }
+      }
+
+      // Verify file exists
+      final file = File(apkPath);
+      if (!await file.exists()) {
+        throw Exception('APK file not found at $apkPath');
+      }
+
+      // Open APK with Android installer
+      final result = await OpenFilex.open(apkPath);
+      debugPrint('[CustomUpdateService] Install result: ${result.type}');
+      
+      if (result.type != ResultType.done) {
+        throw Exception('Failed to open APK installer');
+      }
+    } catch (e) {
+      debugPrint('[CustomUpdateService] Installation failed: $e');
+      rethrow;
+    }
   }
-  
+
   @override
   Future<void> cancelDownload() async {
     debugPrint('[CustomUpdateService] Download cancelled');
-    // TODO: Implement download cancellation
+    _cancelToken?.cancel();
   }
 }
 
@@ -79,7 +139,7 @@ class PlayStoreUpdateService implements UpdateService {
   }
   
   @override
-  Future<void> downloadUpdate(String url, {Function(double progress)? onProgress}) async {
+  Future<String> downloadUpdate(String url, {Function(double progress)? onProgress}) async {
     // Play Store handles download automatically
     throw UnimplementedError('Play Store updates not yet implemented');
   }

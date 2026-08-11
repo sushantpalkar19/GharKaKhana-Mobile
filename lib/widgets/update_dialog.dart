@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../core/theme.dart';
 import '../models/app_version.dart';
 
@@ -116,33 +117,58 @@ class UpdateDialog extends StatelessWidget {
                 ],
               ),
             ],
-            const SizedBox(height: 20),
-            const Text(
-              'What\'s New',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 12),
-            ...appVersion.releaseNotes.map((note) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            if (appVersion.releaseDate != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    '• ',
-                    style: TextStyle(color: AppColors.primary),
+                  Text(
+                    'Released',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                    ),
                   ),
-                  Expanded(
-                    child: Text(
-                      note,
-                      style: const TextStyle(fontSize: 14),
+                  Text(
+                    _formatReleaseDate(appVersion.releaseDate!),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
                     ),
                   ),
                 ],
               ),
-            )),
+            ],
+            const SizedBox(height: 20),
+            // Only show "What's New" if there are release notes
+            if (appVersion.releaseNotes.isNotEmpty) ...[
+              const Text(
+                'What\'s New',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ...appVersion.releaseNotes.map((note) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '• ',
+                      style: TextStyle(color: AppColors.primary),
+                    ),
+                    Expanded(
+                      child: Text(
+                        note,
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+            ],
           ],
         ),
       ),
@@ -166,5 +192,13 @@ class UpdateDialog extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  String _formatReleaseDate(DateTime date) {
+    try {
+      return DateFormat('dd MMM yyyy').format(date);
+    } catch (e) {
+      return 'Unknown';
+    }
   }
 }

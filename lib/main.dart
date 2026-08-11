@@ -25,6 +25,11 @@ import 'screens/maintenance_screen.dart';
 import 'screens/change_password_screen.dart';
 import 'screens/admin_dashboard_screen.dart';
 import 'screens/theme_onboarding_screen.dart';
+import 'screens/customer_app_screen.dart';
+import 'screens/owner_app_screen.dart';
+import 'screens/order_tracking_screen.dart';
+import 'screens/customer_cart_screen.dart';
+import 'screens/mandatory_update_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -88,6 +93,8 @@ class MyApp extends StatelessWidget {
               '/login': (context) => const LoginScreen(),
               '/register': (context) => const RegisterScreen(),
               '/home': (context) => const HomeScreen(),
+              '/customer-app': (context) => const CustomerAppScreen(),
+              '/owner-app': (context) => const OwnerAppScreen(),
               '/mess-detail': (context) => const MessDetailScreen(),
               '/messDetail': (context) => const MessDetailScreen(),
               '/subscriptions': (context) => const SubscriptionsScreen(),
@@ -97,6 +104,13 @@ class MyApp extends StatelessWidget {
               '/maintenance': (context) => const MaintenanceScreen(),
               '/change-password': (context) => const ChangePasswordScreen(),
               '/admin-dashboard': (context) => const AdminDashboardScreen(),
+              '/order-tracking': (context) => OrderTrackingScreen(
+                    orderId: ModalRoute.of(context)!.settings.arguments as String? ?? '',
+                    messName: '',
+                    amount: 0,
+                  ),
+              '/customer-cart': (context) => const CustomerCartScreen(),
+              '/mandatory-update': (context) => const MandatoryUpdateScreen(),
             },
           ),
         );

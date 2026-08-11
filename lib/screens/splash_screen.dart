@@ -189,6 +189,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _checkForUpdates() async {
     final updateProvider = context.read<UpdateProvider>();
+    await updateProvider.init(); // Ensure version info is loaded
     await updateProvider.checkForUpdate();
     
     // Handle maintenance mode
@@ -203,10 +204,18 @@ class _SplashScreenState extends State<SplashScreen>
       return;
     }
     
-    // Handle force update
+    // Handle mandatory update (versionCode below minimum)
+    if (updateProvider.isMandatoryUpdate) {
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/mandatory-update');
+      }
+      return;
+    }
+    
+    // Handle force update (server flag)
     if (updateProvider.isUpdateAvailable && updateProvider.appVersion?.forceUpdate == true) {
       if (mounted) {
-        _showForceUpdateDialog(updateProvider);
+        Navigator.pushReplacementNamed(context, '/mandatory-update');
       }
       return;
     }
@@ -219,29 +228,6 @@ class _SplashScreenState extends State<SplashScreen>
     }
   }
 
-  void _showForceUpdateDialog(UpdateProvider updateProvider) {
-    final appVersion = updateProvider.appVersion;
-    if (appVersion == null) return;
-    
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => PopScope(
-        canPop: false,
-        child: UpdateDialog(
-          appVersion: appVersion,
-          currentVersion: '1.0.0', // TODO: Get from package_info
-          forceUpdate: true,
-          onUpdateNow: () {
-            // TODO: Implement download and install
-            Navigator.of(context).pop();
-          },
-          onLater: () {}, // Disabled for force update
-        ),
-      ),
-    );
-  }
-
   void _showSoftUpdateDialog(UpdateProvider updateProvider) {
     final appVersion = updateProvider.appVersion;
     if (appVersion == null) return;
@@ -250,11 +236,11 @@ class _SplashScreenState extends State<SplashScreen>
       context: context,
       builder: (context) => UpdateDialog(
         appVersion: appVersion,
-        currentVersion: '1.0.0', // TODO: Get from package_info
+        currentVersion: updateProvider.currentVersionName ?? 'Unknown',
         forceUpdate: false,
         onUpdateNow: () {
-          // TODO: Implement download and install
           Navigator.of(context).pop();
+          updateProvider.downloadUpdate(appVersion.downloadUrl);
         },
         onLater: () {
           Navigator.of(context).pop();

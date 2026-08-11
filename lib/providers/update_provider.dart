@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../models/app_version.dart';
 import '../services/update_service.dart';
 import '../services/update_logger.dart';
@@ -23,6 +24,9 @@ class UpdateProvider extends ChangeNotifier {
   String? _errorMessage;
   double _downloadProgress = 0.0;
   String? _ignoredVersion;
+  int? _currentVersionCode;
+  String? _currentVersionName;
+  String? _downloadedApkPath;
   
   UpdateProvider(this._updateService);
   
@@ -31,6 +35,9 @@ class UpdateProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   double get downloadProgress => _downloadProgress;
   String? get ignoredVersion => _ignoredVersion;
+  int? get currentVersionCode => _currentVersionCode;
+  String? get currentVersionName => _currentVersionName;
+  String? get downloadedApkPath => _downloadedApkPath;
   
   bool get isChecking => _state == UpdateState.checking;
   bool get isUpdateAvailable => _state == UpdateState.updateAvailable;
@@ -39,11 +46,28 @@ class UpdateProvider extends ChangeNotifier {
   bool get hasError => _state == UpdateState.error;
   bool get isUpToDate => _state == UpdateState.upToDate;
   
+  /// Check if mandatory update is required
+  bool get isMandatoryUpdate {
+    if (_appVersion == null || _currentVersionCode == null) return false;
+    return _currentVersionCode! < _appVersion!.minimumVersionCode;
+  }
+  
   /// Initialize provider
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
     _ignoredVersion = _prefs?.getString('ignored_version');
     await UpdateLogger.init();
+    
+    // Load current app version
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      _currentVersionCode = int.tryParse(packageInfo.buildNumber) ?? 0;
+      _currentVersionName = packageInfo.version;
+      debugPrint('[UpdateProvider] Current version: $_currentVersionName (code: $_currentVersionCode)');
+    } catch (e) {
+      debugPrint('[UpdateProvider] Failed to get package info: $e');
+    }
+    
     notifyListeners();
   }
   
@@ -94,13 +118,12 @@ class UpdateProvider extends ChangeNotifier {
         return;
       }
       
-      // Check if update is available
-      final currentVersion = await _getCurrentVersion();
-      final needsUpdate = _needsUpdate(currentVersion, version.latestVersion);
+      // Check if update is available using versionCode comparison
+      final needsUpdate = _needsUpdate(_currentVersionCode ?? 0, version.minimumVersionCode, version.forceUpdate);
       
       if (needsUpdate) {
-        // Check if user ignored this version
-        if (!forceCheck && _ignoredVersion == version.latestVersion && !version.forceUpdate) {
+        // Check if user ignored this version (only for optional updates)
+        if (!forceCheck && _ignoredVersion == version.latestVersion && !version.forceUpdate && !isMandatoryUpdate) {
           _state = UpdateState.upToDate;
           notifyListeners();
           return;
@@ -110,7 +133,7 @@ class UpdateProvider extends ChangeNotifier {
         await UpdateLogger.logEvent(UpdateEvent(
           type: UpdateEventType.updateAvailable,
           version: version.latestVersion,
-          message: 'Force: ${version.forceUpdate}',
+          message: 'Force: ${version.forceUpdate}, Mandatory: $isMandatoryUpdate',
           timestamp: DateTime.now(),
         ));
         notifyListeners();
@@ -141,7 +164,7 @@ class UpdateProvider extends ChangeNotifier {
     notifyListeners();
     
     try {
-      await _updateService.downloadUpdate(apkUrl, onProgress: (progress) {
+      _downloadedApkPath = await _updateService.downloadUpdate(apkUrl, onProgress: (progress) {
         _downloadProgress = progress;
         notifyListeners();
       });
@@ -149,9 +172,7 @@ class UpdateProvider extends ChangeNotifier {
       _state = UpdateState.installing;
       notifyListeners();
       
-      // TODO: Get actual APK path from download
-      const apkPath = '/path/to/downloaded.apk';
-      await _updateService.installUpdate(apkPath);
+      await _updateService.installUpdate(_downloadedApkPath!);
       
       _state = UpdateState.idle;
       notifyListeners();
@@ -159,6 +180,7 @@ class UpdateProvider extends ChangeNotifier {
       debugPrint('[UpdateProvider] Download failed: $e');
       _state = UpdateState.error;
       _errorMessage = e.toString();
+      _downloadedApkPath = null;
       notifyListeners();
     }
   }
@@ -196,21 +218,15 @@ class UpdateProvider extends ChangeNotifier {
     notifyListeners();
   }
   
-  /// Get current app version from pubspec.yaml
-  Future<String> _getCurrentVersion() async {
-    // This should be read from package_info_plus in production
-    // For now, return a placeholder
-    return '1.0.0';
-  }
-  
-  /// Compare versions to check if update is needed
-  bool _needsUpdate(String current, String latest) {
-    final currentParts = current.split('.').map(int.parse).toList();
-    final latestParts = latest.split('.').map(int.parse).toList();
-    
-    for (int i = 0; i < 3; i++) {
-      if (latestParts[i] > currentParts[i]) return true;
-      if (latestParts[i] < currentParts[i]) return false;
+  /// Compare versionCodes to check if update is needed
+  bool _needsUpdate(int currentVersionCode, int minimumVersionCode, bool forceUpdate) {
+    // Mandatory update: current version is below minimum supported
+    if (currentVersionCode < minimumVersionCode) {
+      return true;
+    }
+    // Optional update: forceUpdate flag from server
+    if (forceUpdate) {
+      return true;
     }
     return false;
   }
